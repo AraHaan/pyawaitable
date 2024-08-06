@@ -45,7 +45,15 @@ static PyAwaitableABI _abi_interface =
     pyawaitable_unpack_impl,
     pyawaitable_unpack_arb_impl,
     &_PyAwaitableType,
-    pyawaitable_await_function_impl
+    pyawaitable_await_function_impl,
+    pyawaitable_save_int_impl,
+    pyawaitable_unpack_int_impl,
+    pyawaitable_set_impl,
+    pyawaitable_set_arb_impl,
+    pyawaitable_set_int_impl,
+    pyawaitable_get_impl,
+    pyawaitable_get_arb_impl,
+    pyawaitable_get_int_impl
 };
 
 static void
