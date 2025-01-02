@@ -260,6 +260,27 @@ pyawaitable_await_function_impl(
     return 0;
 }
 
+int pyawaitable_await_function_no_args_impl(
+  PyObject *awaitable,
+  PyObject *func,
+  awaitcallback cb,
+  awaitcallback_err err
+)
+{
+    PyObject *coro = PyObject_CallNoArgs(func);
+    if (!coro)
+        return -1;
+
+    if (pyawaitable_await_impl(awaitable, coro, cb, err) < 0)
+    {
+        Py_DECREF(coro);
+        return -1;
+    }
+
+    Py_DECREF(coro);
+    return 0;
+}
+
 PyTypeObject _PyAwaitableType =
 {
     PyVarObject_HEAD_INIT(NULL, 0)

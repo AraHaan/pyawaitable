@@ -52,6 +52,12 @@ typedef struct _pyawaitable_abi
         awaitcallback cb,
         awaitcallback_err err
     );
+    int (*await_function_no_args)(
+        PyObject *,
+        PyObject *,
+        awaitcallback cb,
+        awaitcallback_err err
+    );
 } PyAwaitableABI;
 
 #ifdef PYAWAITABLE_THIS_FILE_INIT
@@ -66,6 +72,7 @@ extern PyAwaitableABI *pyawaitable_abi;
 
 #define pyawaitable_await pyawaitable_abi->await
 #define pyawaitable_await_function pyawaitable_abi->await_function
+#define pyawaitable_await_function_no_args pyawaitable_abi->await_function_no_args
 #define pyawaitable_async_with pyawaitable_abi->async_with
 
 #define pyawaitable_save pyawaitable_abi->save
@@ -126,6 +133,7 @@ pyawaitable_init()
 
 #define PyAwaitable_AddAwait pyawaitable_await
 #define PyAwaitable_AwaitFunction pyawaitable_await_function
+#define PyAwaitable_AwaitFunctionNoArgs pyawaitable_await_function_no_args
 #define PyAwaitable_AsyncWith pyawaitable_async_with
 
 #define PyAwaitable_SaveValues pyawaitable_save
