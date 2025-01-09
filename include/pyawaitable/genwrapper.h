@@ -4,7 +4,8 @@
 #include <Python.h>
 #include <pyawaitable/awaitableobject.h>
 
-extern PyTypeObject _PyAwaitableGenWrapperType;
+extern PyType_Spec _PyAwaitableGenWrapper_Spec;
+extern PyTypeObject *_PyAwaitableGenWrapperType;
 
 typedef struct _GenWrapperObject
 {

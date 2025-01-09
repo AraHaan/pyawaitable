@@ -109,7 +109,7 @@ awaitable_throw(PyObject *self, PyObject *args)
 }
 
 #if PY_MINOR_VERSION > 9
-static PySendResult
+PySendResult
 awaitable_am_send(PyObject *self, PyObject *arg, PyObject **presult)
 {
     PyObject *send_res = awaitable_send_with_arg(self, arg);
@@ -145,14 +145,4 @@ PyMethodDef pyawaitable_methods[] =
     {"close", awaitable_close, METH_VARARGS, NULL},
     {"throw", awaitable_throw, METH_VARARGS, NULL},
     {NULL, NULL, 0, NULL}
-};
-
-PyAsyncMethods pyawaitable_async_methods =
-{
-#if PY_MINOR_VERSION > 9
-    .am_await = awaitable_next,
-    .am_send = awaitable_am_send
-#else
-    .am_await = awaitable_next
-#endif
 };

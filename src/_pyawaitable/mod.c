@@ -4,21 +4,22 @@
 #include <pyawaitable/values.h>
 #include <pyawaitable/genwrapper.h>
 #include <pyawaitable/with.h>
-#define ADD_TYPE(tp)                                               \
-        do                                                         \
-        {                                                          \
-            Py_INCREF(&tp);                                        \
-            if (PyType_Ready(&tp) < 0) {                           \
-                Py_DECREF(&tp);                                    \
-                Py_DECREF(m);                                      \
-                return NULL;                                       \
-            }                                                      \
-            if (PyModule_AddObject(m, #tp, (PyObject *)&tp) < 0) { \
-                Py_DECREF(&tp);                                    \
-                Py_DECREF(m);                                      \
-                return NULL;                                       \
-            }                                                      \
-        } while (0)
+#define ADD_TYPE_FROMSPEC(type, spec)                                        \
+do                                                                           \
+{                                                                            \
+    type = (PyTypeObject *)PyType_FromSpec(&spec);                           \
+    if (type == NULL) {                                                      \
+        return NULL;                                                         \
+    }                                                                        \
+    if (PyModule_AddObject(m, #type, Py_NewRef(_PyObject_CAST(type))) < 0) { \
+        Py_DECREF(&type);                                                    \
+        Py_DECREF(m);                                                        \
+        return NULL;                                                         \
+    }                                                                        \
+} while (0)
+
+extern PyTypeObject *_PyAwaitableType = NULL;
+extern PyTypeObject *_PyAwaitableGenWrapperType = NULL;
 
 static PyModuleDef awaitable_module =
 {
@@ -36,35 +37,35 @@ static PyModuleDef awaitable_module =
  */
 static PyAwaitableABI _abi_interface =
 {
-    sizeof(PyAwaitableABI),
-    pyawaitable_new_impl,
-    pyawaitable_await_impl,
-    pyawaitable_cancel_impl,
-    pyawaitable_set_result_impl,
-    pyawaitable_save_impl,
-    pyawaitable_save_arb_impl,
-    pyawaitable_unpack_impl,
-    pyawaitable_unpack_arb_impl,
-    &_PyAwaitableType,
-    pyawaitable_await_function_impl,
-    pyawaitable_save_int_impl,
-    pyawaitable_unpack_int_impl,
-    pyawaitable_set_impl,
-    pyawaitable_set_arb_impl,
-    pyawaitable_set_int_impl,
-    pyawaitable_get_impl,
-    pyawaitable_get_arb_impl,
-    pyawaitable_get_int_impl,
-    pyawaitable_async_with_impl,
-    pyawaitable_defer_await_impl
+    .size = sizeof(PyAwaitableABI),
+    .new = pyawaitable_new_impl,
+    .await = pyawaitable_await_impl,
+    .cancel = pyawaitable_cancel_impl,
+    .set_result = pyawaitable_set_result_impl,
+    .save = pyawaitable_save_impl,
+    .save_arb = pyawaitable_save_arb_impl,
+    .unpack = pyawaitable_unpack_impl,
+    .unpack_arb = pyawaitable_unpack_arb_impl,
+    .await_function = pyawaitable_await_function_impl,
+    .save_int = pyawaitable_save_int_impl,
+    .unpack_int = pyawaitable_unpack_int_impl,
+    .set = pyawaitable_set_impl,
+    .set_arb = pyawaitable_set_arb_impl,
+    .set_int = pyawaitable_set_int_impl,
+    .get = pyawaitable_get_impl,
+    .get_arb = pyawaitable_get_arb_impl,
+    .get_int = pyawaitable_get_int_impl,
+    .async_with = pyawaitable_async_with_impl,
+    .defer_await = pyawaitable_defer_await_impl
 };
 
 PyMODINIT_FUNC
 PyInit__pyawaitable(void)
 {
     PyObject *m = PyModule_Create(&awaitable_module);
-    ADD_TYPE(_PyAwaitableType);
-    ADD_TYPE(_PyAwaitableGenWrapperType);
+    ADD_TYPE_FROMSPEC(_PyAwaitableType, _PyAwaitable_Spec);
+    ADD_TYPE_FROMSPEC(_PyAwaitableGenWrapperType, _PyAwaitableGenWrapper_Spec);
+    _abi_interface.PyAwaitableType = _PyAwaitableType;
     PyObject *capsule = PyCapsule_New(
         &_abi_interface,
         "_pyawaitable.abi_v1",

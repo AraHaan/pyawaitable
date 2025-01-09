@@ -21,9 +21,16 @@ static PyObject *
 gen_new(PyTypeObject *tp, PyObject *args, PyObject *kwds)
 {
     assert(tp != NULL);
+#if PY_MINOR_VERSION > 9
+    allocfunc tp_alloc = (allocfunc)PyType_GetSlot(tp, Py_tp_alloc);
+    assert(tp_alloc != NULL);
+
+    PyObject *self = tp_alloc(tp, 0);
+#else
     assert(tp->tp_alloc != NULL);
 
     PyObject *self = tp->tp_alloc(tp, 0);
+#endif
     if (self == NULL)
     {
         return NULL;
@@ -59,7 +66,11 @@ gen_dealloc(PyObject *self)
 {
     PyObject_GC_UnTrack(self);
     (void)genwrapper_clear(self);
+#if PY_MINOR_VERSION > 9
+    ((freefunc)PyType_GetSlot(Py_TYPE(self), Py_tp_free))(self);
+#else
     Py_TYPE(self)->tp_free(self);
+#endif
 }
 
 PyObject *
@@ -67,7 +78,7 @@ genwrapper_new(PyAwaitableObject *aw)
 {
     assert(aw != NULL);
     GenWrapperObject *g = (GenWrapperObject *) gen_new(
-        &_PyAwaitableGenWrapperType,
+        _PyAwaitableGenWrapperType,
         NULL,
         NULL
     );
@@ -192,10 +203,15 @@ genwrapper_next(PyObject *self)
             return genwrapper_next(self);
         }
 
+#if PY_MINOR_VERSION > 9
+        unaryfunc am_await = ((unaryfunc)PyType_GetSlot(Py_TYPE(cb->coro), Py_am_await));
+        if (am_await == NULL)
+#else
         if (
             Py_TYPE(cb->coro)->tp_as_async == NULL ||
             Py_TYPE(cb->coro)->tp_as_async->am_await == NULL
         )
+#endif
         {
             PyErr_Format(
                 PyExc_TypeError,
@@ -207,9 +223,15 @@ genwrapper_next(PyObject *self)
             return NULL;
         }
 
+#if PY_MINOR_VERSION > 9
+        g->gw_current_await = am_await(
+            cb->coro
+        );
+#else
         g->gw_current_await = Py_TYPE(cb->coro)->tp_as_async->am_await(
             cb->coro
         );
+#endif
         if (g->gw_current_await == NULL)
         {
             if (
@@ -232,9 +254,15 @@ genwrapper_next(PyObject *self)
         cb = pyawaitable_array_GET_ITEM(&aw->aw_callbacks, aw->aw_state - 1);
     }
 
+#if PY_MINOR_VERSION > 9
+    PyObject *result = ((iternextfunc)PyType_GetSlot(
+        Py_TYPE(g->gw_current_await),
+        Py_tp_iternext))(g->gw_current_await);
+#else
     PyObject *result = Py_TYPE(
         g->gw_current_await
     )->tp_iternext(g->gw_current_await);
+#endif
 
     if (result != NULL)
     {
@@ -308,7 +336,7 @@ genwrapper_next(PyObject *self)
 
     // Preserve the error callback in case we get cancelled
     awaitcallback_err err_callback = cb->err_callback;
-    Py_INCREF(aw);
+    Py_INCREF(_PyObject_CAST(aw));
     int res = cb->callback((PyObject *) aw, value);
     Py_DECREF(aw);
     Py_DECREF(value);
@@ -357,16 +385,21 @@ genwrapper_next(PyObject *self)
     return genwrapper_next(self);
 }
 
-PyTypeObject _PyAwaitableGenWrapperType =
+static PyType_Slot _PyAwaitableGenWrapper_slots[] = {
+  { Py_tp_clear, genwrapper_clear },
+  { Py_tp_dealloc, gen_dealloc },
+  { Py_tp_iter, PyObject_SelfIter },
+  { Py_tp_iternext, genwrapper_next },
+  { Py_tp_new, gen_new },
+  { Py_tp_traverse, genwrapper_traverse },
+  { 0, NULL }
+};
+
+PyType_Spec _PyAwaitableGenWrapper_Spec =
 {
-    PyVarObject_HEAD_INIT(NULL, 0)
-    .tp_name = "_genwrapper",
-    .tp_basicsize = sizeof(GenWrapperObject),
-    .tp_dealloc = gen_dealloc,
-    .tp_flags = Py_TPFLAGS_DEFAULT | Py_TPFLAGS_HAVE_GC,
-    .tp_iter = PyObject_SelfIter,
-    .tp_iternext = genwrapper_next,
-    .tp_clear = genwrapper_clear,
-    .tp_traverse = genwrapper_traverse,
-    .tp_new = gen_new,
+    .name ="_genwrapper",
+    .basicsize = sizeof(GenWrapperObject),
+    .itemsize = 0,
+    .flags = Py_TPFLAGS_DEFAULT | Py_TPFLAGS_HAVE_GC,
+    .slots = _PyAwaitableGenWrapper_slots
 };

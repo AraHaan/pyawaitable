@@ -42,7 +42,8 @@ struct _PyAwaitableObject
 };
 
 typedef struct _PyAwaitableObject PyAwaitableObject;
-extern PyTypeObject _PyAwaitableType;
+extern PyType_Spec _PyAwaitable_Spec;
+extern PyTypeObject *_PyAwaitableType;
 
 int pyawaitable_set_result_impl(PyObject *awaitable, PyObject *result);
 

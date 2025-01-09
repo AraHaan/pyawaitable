@@ -25,9 +25,16 @@ static PyObject *
 awaitable_new_func(PyTypeObject *tp, PyObject *args, PyObject *kwds)
 {
     assert(tp != NULL);
+#if PY_MINOR_VERSION > 9
+    allocfunc tp_alloc = (allocfunc)PyType_GetSlot(tp, Py_tp_alloc);
+    assert(tp_alloc != NULL);
+
+    PyObject *self = tp_alloc(tp, 0);
+#else
     assert(tp->tp_alloc != NULL);
 
     PyObject *self = tp->tp_alloc(tp, 0);
+#endif
     if (self == NULL)
     {
         return NULL;
@@ -121,7 +128,11 @@ awaitable_dealloc(PyObject *self)
         }
     }
 
+#if PY_MINOR_VERSION > 9
+    ((freefunc)PyType_GetSlot(Py_TYPE(self), Py_tp_free))(self);
+#else
     Py_TYPE(self)->tp_free(self);
+#endif
 }
 
 void
@@ -210,7 +221,7 @@ PyObject *
 pyawaitable_new_impl(void)
 {
     // XXX Use a freelist?
-    return awaitable_new_func(&_PyAwaitableType, NULL, NULL);
+    return awaitable_new_func(_PyAwaitableType, NULL, NULL);
 }
 
 int
@@ -265,16 +276,23 @@ pyawaitable_await_function_impl(
     return 0;
 }
 
-PyTypeObject _PyAwaitableType =
-{
-    PyVarObject_HEAD_INIT(NULL, 0)
-    .tp_name = "_PyAwaitableType",
-    .tp_basicsize = sizeof(PyAwaitableObject),
-    .tp_dealloc = awaitable_dealloc,
-    .tp_as_async = &pyawaitable_async_methods,
-    .tp_flags = Py_TPFLAGS_DEFAULT,
-    .tp_doc = awaitable_doc,
-    .tp_iternext = awaitable_next,
-    .tp_new = awaitable_new_func,
-    .tp_methods = pyawaitable_methods
+static PyType_Slot _PyAwaitable_slots[] = {
+    { Py_tp_dealloc, awaitable_dealloc },
+    { Py_tp_doc, awaitable_doc },
+    { Py_tp_iternext, awaitable_next },
+    { Py_tp_methods, pyawaitable_methods },
+    { Py_tp_new, awaitable_new_func },
+    { Py_am_await, awaitable_next },
+#if PY_MINOR_VERSION > 9
+    { Py_am_send, awaitable_am_send },
+#endif
+    { 0, NULL }
+};
+
+PyType_Spec _PyAwaitable_Spec = {
+    .name = "_PyAwaitableType",
+    .basicsize = sizeof(PyAwaitableObject),
+    .itemsize = 0,
+    .flags = Py_TPFLAGS_DEFAULT,
+    .slots = _PyAwaitable_slots
 };

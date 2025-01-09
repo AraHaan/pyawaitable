@@ -3,7 +3,11 @@
 
 #include <Python.h>
 
+#if PY_MINOR_VERSION > 9
+PySendResult
+awaitable_am_send(PyObject *self, PyObject *arg, PyObject **presult);
+#endif
+
 extern PyMethodDef pyawaitable_methods[];
-extern PyAsyncMethods pyawaitable_async_methods;
 
 #endif
